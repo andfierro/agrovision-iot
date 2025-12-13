@@ -1,7 +1,0 @@
-{
-  "name": "AgroVision IoT",
-  "description": "Smart Agriculture Image Classification using Computer Vision & IoT",
-  "requestFramePermissions": [
-    "camera"
-  ]
-}
