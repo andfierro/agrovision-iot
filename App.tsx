@@ -25,7 +25,7 @@ const App: React.FC = () => {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Actualizar sensores periódicamente (Simulando polling al dispositivo IoT)
+  // Actualizar sensores periódicamente
   useEffect(() => {
     const interval = setInterval(() => {
       setSensorData(readIoTData());
@@ -33,6 +33,7 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Chequeo inicial del modelo
   const checkModel = async () => {
     setCheckingModel(true);
     const available = await isModelAvailable();
@@ -59,9 +60,9 @@ const App: React.FC = () => {
 
   const runAnalysis = async (base64Image: string) => {
     setIsAnalyzing(true);
-    // Pasamos la imagen Y los datos actuales del sensor para un diagnóstico combinado
-    // Usamos setTimeout para permitir que la UI se actualice antes de bloquear el hilo con JS
+    // Timeout para dar tiempo al renderizado de "Cargando..."
     setTimeout(async () => {
+        // Pasamos la imagen Y los datos de los sensores al servicio
         const analysis = await analyzePlantImage(base64Image, sensorData);
         setResult(analysis);
         setIsAnalyzing(false);
@@ -117,12 +118,16 @@ const App: React.FC = () => {
               <div className="bg-green-50 rounded-full p-8 border-2 border-dashed border-green-200 relative group">
                 <Camera size={48} className="text-green-300 group-hover:text-green-500 transition-colors" />
                 {!modelReady && !checkingModel && (
-                   <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-56 bg-red-100 text-red-800 text-[10px] py-2 px-3 rounded-lg border border-red-200 text-center shadow-sm z-20">
+                   <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 w-64 bg-red-100 text-red-800 text-[10px] py-2 px-3 rounded-lg border border-red-200 text-center shadow-sm z-20">
                      <div className="flex items-center justify-center gap-1 font-bold mb-1">
                        <Database size={12} />
-                       Archivo faltante
+                       Archivo no encontrado
                      </div>
-                     Falta <code>model.json</code> en carpeta /model/.
+                     El sistema buscó en:<br/>
+                     {/* Truco: Mostramos la ruta calculada aproximada para debugging */}
+                     <code className="text-[8px] break-all block mt-1 bg-white/50 p-1 rounded">
+                       {window.location.origin}{window.location.pathname}model/model.json
+                     </code>
                    </div>
                 )}
               </div>
