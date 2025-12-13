@@ -1,36 +1,56 @@
 import React from 'react';
-import { Thermometer, Droplets, Sun, Activity } from 'lucide-react';
-import { SensorData } from '../types';
+import ReactDOM from 'react-dom/client';
+import App from './App';
 
-interface SensorDashboardProps {
-  data: SensorData;
+const rootElement = document.getElementById('root');
+if (!rootElement) {
+  throw new Error("Could not find root element to mount to");
 }
 
-export const SensorDashboard: React.FC<SensorDashboardProps> = ({ data }) => {
-  const MetricCard = ({ icon: Icon, label, value, unit, color }: any) => (
-    <div className={`bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center gap-3`}>
-      <div className={`p-2 rounded-full ${color} text-white`}>
-        <Icon size={20} />
-      </div>
-      <div>
-        <p className="text-xs text-gray-500 uppercase font-semibold">{label}</p>
-        <p className="text-lg font-bold text-gray-800">{value.toFixed(1)}{unit}</p>
-      </div>
-    </div>
-  );
+// Error Boundary simple para evitar pantalla blanca
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: any}> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
 
-  return (
-    <div className="w-full mb-6">
-      <div className="flex items-center gap-2 mb-3 px-1">
-        <Activity size={18} className="text-green-600" />
-        <h3 className="font-semibold text-gray-700">Sensores IoT (Tiempo Real)</h3>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <MetricCard icon={Thermometer} label="Temp" value={data.temperature} unit="°C" color="bg-orange-500" />
-        <MetricCard icon={Droplets} label="Humedad" value={data.humidity} unit="%" color="bg-blue-500" />
-        <MetricCard icon={Droplets} label="Suelo" value={data.soilMoisture} unit="%" color="bg-emerald-600" />
-        <MetricCard icon={Sun} label="Luz" value={data.lightLevel} unit=" lx" color="bg-yellow-500" />
-      </div>
-    </div>
-  );
-};
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("Uncaught error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{padding: '2rem', fontFamily: 'sans-serif', color: '#7f1d1d', background: '#fef2f2', height: '100vh'}}>
+          <h1>⚠️ Algo salió mal</h1>
+          <p>La aplicación ha encontrado un error crítico.</p>
+          <pre style={{background: '#fff', padding: '1rem', borderRadius: '0.5rem', overflow: 'auto'}}>
+            {this.state.error?.toString()}
+          </pre>
+          <p>Sugerencia: Verifica que hayas añadido <code>"homepage": "."</code> en tu <code>package.json</code>.</p>
+          <button 
+            onClick={() => window.location.reload()}
+            style={{marginTop: '1rem', padding: '0.5rem 1rem', background: '#dc2626', color: 'white', border: 'none', borderRadius: '0.25rem'}}
+          >
+            Recargar Aplicación
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+const root = ReactDOM.createRoot(rootElement);
+root.render(
+  <React.StrictMode>
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
+  </React.StrictMode>
+);
