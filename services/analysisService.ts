@@ -2,33 +2,33 @@ import * as tf from '@tensorflow/tfjs';
 import { AnalysisResult, PlantStatus, SensorData } from "../types";
 
 // =========================================================
-// 1. FUNCIÓN getModelUrl (Aquí es donde se arregla la ruta)
+// 1. FUNCIÓN getModelUrl (Solución para GitHub Pages)
 // =========================================================
 const getModelUrl = () => {
-  // Obtenemos la URL actual donde se está ejecutando la app
   const loc = window.location;
   
-  // Limpiamos la ruta para obtener el directorio base (ej: /agrovision-tesis/)
-  // Si termina en index.html, lo quitamos.
+  // Obtenemos la ruta base (ej: /nombre-repo/)
   let pathName = loc.pathname;
+  
+  // Si la URL termina en index.html, lo quitamos
   if (pathName.endsWith('index.html')) {
     pathName = pathName.substring(0, pathName.lastIndexOf('index.html'));
   }
   
-  // Aseguramos que termine en /
+  // Aseguramos que termine en '/'
   if (!pathName.endsWith('/')) {
      pathName += '/';
   }
 
-  // Construimos la ruta absoluta al modelo
-  // Resultado Ej: https://usuario.github.io/agrovision-tesis/model/model.json
-  const fullPath = `${loc.origin}${pathName}model/model.json`;
-  return fullPath;
+  // Construimos la ruta absoluta
+  // Local: http://localhost:xxxx/model/model.json
+  // GitHub: https://usuario.github.io/repo/model/model.json
+  return `${loc.origin}${pathName}model/model.json`;
 };
 
-const IMAGE_SIZE = 224; // Tamaño estándar para MobileNetV2
+const IMAGE_SIZE = 224;
 
-// BASE DE CONOCIMIENTO LOCAL (38 Clases de PlantVillage)
+// BASE DE CONOCIMIENTO (38 Clases PlantVillage)
 const KNOWLEDGE_BASE: Record<number, any> = {
   0: { status: PlantStatus.DISEASED, name: "Manzana: Sarna (Apple Scab)", description: "Hongo Venturia inaequalis. Manchas verde oliva o negras aterciopeladas.", recommendations: ["Fungicidas preventivos", "Recoger hojas caídas", "Poda de ventilación"] },
   1: { status: PlantStatus.DISEASED, name: "Manzana: Podredumbre Negra", description: "Hongo Botryosphaeria obtusa. Manchas en forma de ojo de rana.", recommendations: ["Eliminar frutos momificados", "Aplicar Captan", "Sanidad del huerto"] },
@@ -72,16 +72,14 @@ const KNOWLEDGE_BASE: Record<number, any> = {
 
 let model: tf.LayersModel | null = null;
 
-// Función para verificar si el archivo existe antes de intentar cargarlo
 export const isModelAvailable = async (): Promise<boolean> => {
   try {
     const url = getModelUrl();
-    console.log("Verificando existencia del modelo en:", url);
-    // Hacemos una petición HEAD solo para ver si el archivo existe (status 200)
+    console.log("Verificando modelo:", url);
     const res = await fetch(url, { method: 'HEAD' });
     return res.ok;
   } catch (e) {
-    console.warn("No se pudo conectar con el archivo del modelo:", e);
+    console.warn("Error conectando con modelo:", e);
     return false;
   }
 };
@@ -90,38 +88,22 @@ const loadModel = async () => {
   if (model) return model;
   try {
     const url = getModelUrl();
-    console.log("Iniciando carga de TensorFlow.js desde:", url);
-    
-    // Preparamos el backend (WebGL para aceleración gráfica)
+    console.log("Cargando modelo desde:", url);
     await tf.ready();
-    
-    // Cargamos el modelo
     model = await tf.loadLayersModel(url);
-    console.log("Modelo cargado correctamente. Backend:", tf.getBackend());
+    console.log("Modelo cargado.");
     return model;
   } catch (error) {
-    console.error("Error cargando modelo:", error);
+    console.error("Fallo al cargar modelo:", error);
     return null;
   }
 };
 
-// Función auxiliar para combinar predicción visual con datos de sensores
 const enrichWithSensorData = (recommendations: string[], sensorData?: SensorData): string[] => {
   if (!sensorData) return recommendations;
-  
   const newRecs = [...recommendations];
-  
-  // Reglas simples de experto basadas en sensores
-  if (sensorData.humidity > 80) {
-    newRecs.unshift("⚠️ ALERTA SENSORES: Humedad ambiental muy alta (>80%). Favorece hongos.");
-  }
-  if (sensorData.temperature > 32) {
-    newRecs.push("⚠️ ALERTA SENSORES: Temperatura crítica (>32°C). Riesgo de estrés térmico.");
-  }
-  if (sensorData.soilMoisture < 20) {
-     newRecs.push("⚠️ ALERTA SENSORES: Suelo muy seco. Riego urgente recomendado.");
-  }
-  
+  if (sensorData.humidity > 80) newRecs.unshift("⚠️ ALERTA IOT: Alta humedad, riesgo fúngico.");
+  if (sensorData.temperature > 32) newRecs.push("⚠️ ALERTA IOT: Estrés térmico.");
   return newRecs;
 };
 
@@ -135,40 +117,30 @@ export const analyzePlantImage = async (base64Image: string, sensorData?: Sensor
       img.onload = async () => {
         try {
           const loadedModel = await loadModel();
-          if (!loadedModel) {
-             throw new Error("El modelo no se ha podido cargar. Verifique la ruta.");
-          }
+          if (!loadedModel) throw new Error("Modelo no disponible");
 
-          // 1. Preprocesamiento de imagen para MobileNetV2
           const predictionResult = tf.tidy(() => {
             let tensor = tf.browser.fromPixels(img);
-            // Redimensionar a 224x224
             tensor = tf.image.resizeBilinear(tensor, [IMAGE_SIZE, IMAGE_SIZE]);
-            // Normalizar valores a [0, 1]
             tensor = tensor.div(255.0);
-            // Expandir dimensiones para crear un "batch" de 1 imagen: [1, 224, 224, 3]
             const batch = tensor.expandDims(0);
             return loadedModel.predict(batch) as tf.Tensor;
           });
 
-          // 2. Obtener datos del tensor
           const data = await predictionResult.data();
-          predictionResult.dispose(); // Limpiar memoria de la GPU
+          predictionResult.dispose();
 
-          // 3. Interpretar resultados
           const probabilities = Array.from(data) as number[];
           const maxProbability = Math.max(...probabilities);
           const predictionIndex = probabilities.indexOf(maxProbability);
           
-          // Buscar en la base de conocimiento local
           const rawDiagnosis = KNOWLEDGE_BASE[predictionIndex] || {
             status: PlantStatus.UNCERTAIN,
-            name: `Clase Desconocida (ID: ${predictionIndex})`,
-            description: "No se encontró información para esta clase en la base de datos.",
+            name: `Clase ${predictionIndex}`,
+            description: "No identificada",
             recommendations: []
           };
 
-          // 4. Fusión de datos (Imagen + Sensores)
           const finalRecommendations = enrichWithSensorData(rawDiagnosis.recommendations, sensorData);
 
           resolve({
@@ -184,10 +156,10 @@ export const analyzePlantImage = async (base64Image: string, sensorData?: Sensor
           console.error(error);
           resolve({
             status: PlantStatus.UNCERTAIN,
-            diseaseName: "Error Técnico",
+            diseaseName: "Error",
             confidence: 0,
-            description: `Hubo un error al ejecutar el modelo: ${error.message}`,
-            recommendations: ["Recargue la página", "Verifique su conexión a internet (para cargar librerías)"],
+            description: error.message || "Error desconocido",
+            recommendations: ["Revisar consola"],
             timestamp: new Date().toISOString(),
           });
         }
@@ -195,9 +167,9 @@ export const analyzePlantImage = async (base64Image: string, sensorData?: Sensor
       
       img.onerror = () => resolve({
           status: PlantStatus.UNCERTAIN,
-          diseaseName: "Error de Imagen",
+          diseaseName: "Error Imagen",
           confidence: 0,
-          description: "No se pudo leer el archivo de imagen proporcionado.",
+          description: "Imagen corrupta",
           recommendations: [],
           timestamp: new Date().toISOString()
       });
@@ -205,9 +177,9 @@ export const analyzePlantImage = async (base64Image: string, sensorData?: Sensor
     } catch (e) {
       resolve({
         status: PlantStatus.UNCERTAIN,
-        diseaseName: "Error Crítico",
+        diseaseName: "Error Sistema",
         confidence: 0,
-        description: "Error inesperado en la aplicación.",
+        description: "Excepción crítica",
         recommendations: [],
         timestamp: new Date().toISOString(),
       });
