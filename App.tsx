@@ -56,6 +56,7 @@ const App: React.FC = () => {
 
   const runAnalysis = async (base64Image: string) => {
     setIsAnalyzing(true);
+    // Un pequeño delay para permitir que la UI se actualice antes de bloquear el hilo con TF.js
     setTimeout(async () => {
         const analysis = await analyzePlantImage(base64Image, sensorData);
         setResult(analysis);
@@ -109,16 +110,16 @@ const App: React.FC = () => {
                    <div className="absolute -bottom-10 left-1/2 -translate-x-1/2 w-64 bg-red-100 text-red-800 text-[10px] py-2 px-3 rounded-lg border border-red-200 text-center shadow-sm z-20">
                      <div className="flex items-center justify-center gap-1 font-bold mb-1">
                        <Database size={12} />
-                       Model Not Found
+                       Modelo No Encontrado
                      </div>
-                     Looking at: <code className="block bg-white/50">{window.location.origin}{window.location.pathname}model/model.json</code>
+                     Verificando: <code className="block bg-white/50 overflow-hidden text-ellipsis">{window.location.pathname}model/model.json</code>
                    </div>
                 )}
               </div>
               <div className="text-center">
                 <h2 className="text-xl font-bold text-gray-800">Diagnóstico Offline</h2>
                 <p className="text-gray-500 mt-2 px-4 text-sm">
-                  Análisis mediante Red Neuronal (CNN) ejecutada en el dispositivo.
+                  Análisis mediante Red Neuronal (CNN) ejecutada en el navegador.
                 </p>
               </div>
             </div>
@@ -162,7 +163,7 @@ const App: React.FC = () => {
             <div className="text-center">
               <h3 className="text-xl font-bold text-gray-800">Procesando...</h3>
               <p className="text-sm text-gray-500 mt-1">
-                TensorFlow.js en ejecución
+                TensorFlow.js analizando hoja...
               </p>
             </div>
           </div>

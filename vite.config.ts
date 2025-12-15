@@ -5,7 +5,9 @@ import react from '@vitejs/plugin-react';
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
-      server: {
+      // ✅ AGREGAR ESTO para GitHub Pages
+      base: process.env.NODE_ENV === 'production' ? './' : '/',
+	  server: {
         port: 3000,
         host: '0.0.0.0',
       },
@@ -18,6 +20,12 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+		},
+      // ✅ Optimizar build para GitHub Pages
+      build: {
+        outDir: 'dist',
+        assetsDir: 'assets',
+        emptyOutDir: true,
       }
     };
 });
